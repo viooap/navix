@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navix - Sistem Monitoring Kendaraan</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Leaflet.js Peta CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Paho MQTT JavaScript CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-700 font-sans min-h-screen">
+
+    <!-- NAVBAR -->
+    <nav class="bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+        <div class="text-emerald-600 font-bold text-xl tracking-wide">Navix</div>
+        <div class="flex space-x-6 text-sm font-medium">
+            <a href="/dashboard/" class="text-emerald-600 border-b-2 border-emerald-500 pb-1">Dashboard</a>
+            <a href="/riwayat/" class="text-gray-400 hover:text-gray-600">Riwayat</a>
+            <a href="#" class="text-gray-400 hover:text-gray-600">Perangkat</a>
+            <a href="#" class="text-gray-400 hover:text-gray-600">Credits</a>
+        </div>
+        <div class="w-8 h-8 rounded-full border border-gray-200 bg-gray-100"></div> <!-- Placeholder User Icon -->
+    </nav>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-6xl mx-auto px-6 py-8">
+        
+        <!-- HEADER TITLE -->
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-slate-800">Pelacakan Real-Time</h1>
+            <p class="text-sm text-gray-400 mt-1">Pantau lokasi perangkat Anda secara akurat.</p>
+        </div>
+
+        <!-- TWO COLUMN GRID LAYOUT -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- LEFT COLUMN: STATUS PERANGKAT -->
+            <div class="bg-white rounded-xl shadow-xs border border-gray-100 p-6 flex flex-col justify-between h-[450px]">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 mb-6">Status Perangkat</h2>
+                    
+                    <div class="space-y-4 text-sm">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                            <span class="text-gray-400">Nama Alat:</span>
+                            <span id="device-name" class="font-semibold text-slate-700">Navix</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                            <span class="text-gray-400">Status:</span>
+                            <span id="device-status" class="font-bold text-emerald-500">Aktif</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
+                            <span class="text-gray-400">Akurasi GPS:</span>
+                            <span id="gps-accuracy" class="font-semibold text-slate-700">± 5 Meter</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-400">Baterai:</span>
+                            <span id="device-battery" class="font-bold text-slate-700">84%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ACTION BUTTON -->
+                <button onclick="hubungkanMQTT()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-4 rounded-lg transition-colors cursor-pointer text-center">
+                    Hubungkan Perangkat
+                </button>
+            </div>
+
+            <!-- RIGHT COLUMN: LOKASI SEKARANG (MAP) -->
+            <div class="bg-white rounded-xl shadow-xs border border-gray-100 p-6 md:col-span-2 flex flex-col h-[450px]">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Lokasi Sekarang</h2>
+                
+                <!-- PETA LEAFLET CONTAINER -->
+                <div id="map" class="w-full flex-1 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm relative z-0">
+                    <span id="map-placeholder">Menunggu sinyal GPS...</span>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // 1. Inisialisasi Peta Awal (Koordinat Jakarta sebagai default sebelum data masuk)
+        let map = L.map('map').setView([-6.2088, 106.8456], 13);
+        
+        // Load lapisan peta dari OpenStreetMap
+        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20
+}).addTo(map);
+
+
+        // Buat penanda (marker) yang nanti lokasinya diupdate dari GPS
+        let marker = L.marker([-6.2088, 106.8456]).addTo(map)
+            .bindPopup("<b>Kurir-Mobil-01</b><br>Menunggu data koordinat aktual.");
+
+        // Menghilangkan tulisan "Menunggu sinyal GPS..." setelah peta termuat
+        document.getElementById('map-placeholder').style.display = 'none';
+
+        // 2. Konfigurasi Client MQTT
+        const MQTT_BROKER = "broker.hivemq.com";
+        const MQTT_PORT = 8000; // Menggunakan WebSocket port standar broker publik (Gunakan 443 jika di deploy ke HTTPS Netlify)
+        const MQTT_TOPIC = "monitoring/kendaraan/posisi";
+        const CLIENT_ID = "web_client_" + Math.random().toString(16).substr(2, 8);
+
+        let client = new Paho.MQTT.Client(MQTT_BROKER, MQTT_PORT, CLIENT_ID);
+
+        // Jika koneksi terputus
+        client.onConnectionLost = function (responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("Koneksi terputus: " + responseObject.errorMessage);
+                document.getElementById('device-status').innerText = "Terputus";
+                document.getElementById('device-status').className = "font-bold text-red-500";
+            }
+        };
+
+        // Jika pesan/data dari ESP32 masuk
+        client.onMessageArrived = function (message) {
+            console.log("Data diterima: " + message.payloadString);
+            
+            try {
+                // Parsing data JSON dari ESP32, contoh: {"lat": -6.123, "lng": 106.123, "batt": 84, "acc": 5}
+                let data = JSON.parse(message.payloadString);
+                
+                if (data.lat && data.lng) {
+                    // Update posisi marker dan titik tengah peta
+                    let newPos = [data.lat, data.lng];
+                    marker.setLatLng(newPos).setPopupContent("<b>Kendaraan Berjalan</b><br>Lat: " + data.lat + "<br>Lng: " + data.lng).openPopup();
+                    map.setView(newPos, 16);
+
+                    // Update UI status secara dinamis jika parameter dikirim oleh ESP32
+                    if(data.batt) document.getElementById('device-battery').innerText = data.batt + "%";
+                    if(data.acc) document.getElementById('gps-accuracy').innerText = "± " + data.acc + " Meter";
+                    
+                    document.getElementById('device-status').innerText = "Aktif";
+                    document.getElementById('device-status').className = "font-bold text-emerald-500";
+                }
+            } catch (e) {
+                console.error("Format data payload bermasalah/bukan JSON valid.");
+            }
+        };
+
+        // Fungsi pemicu tombol hubungkan
+        function hubungkanMQTT() {
+            document.getElementById('device-status').innerText = "Menghubungkan...";
+            document.getElementById('device-status').className = "font-bold text-amber-500";
+            
+            client.connect({
+                onSuccess: function () {
+                    console.log("Sukses terhubung ke MQTT Broker!");
+                    client.subscribe(MQTT_TOPIC);
+                    document.getElementById('device-status').innerText = "Terhubung (Mencari GPS)";
+                    document.getElementById('device-status').className = "font-bold text-blue-500";
+                },
+                onFailure: function (message) {
+                    console.log("Gagal terhubung: " + message.errorMessage);
+                    document.getElementById('device-status').innerText = "Gagal Konek";
+                    document.getElementById('device-status').className = "font-bold text-red-500";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
