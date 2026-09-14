@@ -112,23 +112,6 @@
         .status-active { color: var(--primary-color); }
         .status-connecting { color: orange; }
 
-        /* Tombol Hubungkan */
-        .btn-connect {
-            display: block;
-            width: 100%;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);
-            transition: background 0.2s;
-        }
-
         /* Tampilan Teks Koordinat */
         .geo-display {
             display: flex;
@@ -196,7 +179,7 @@
                     </tr>
                     <tr>
                         <td>Status:</td>
-                        <td><span id="txt-status" class="status-connecting">Menghubungkan via API...</span></td>
+                        <td><span id="txt-status" class="status-connecting">Menghubungkan...</span></td>
                     </tr>
                     <tr>
                         <td>Akurasi GPS:</td>
@@ -207,7 +190,6 @@
                         <td>84%</td>
                     </tr>
                 </table>
-                <button class="btn-connect" onclick="ambilDataManual()">Paksa Update Data</button>
             </div>
 
             <!-- Kartu Kanan: Tampilan Angka Koordinat -->
@@ -228,9 +210,8 @@
         </div>
     </div>
 
-    <!-- SCRIPT UTAMA: Tanpa Library Pihak Ketiga, Murni JavaScript Fetch -->
     <script>
-        // URL Data Mentah Firebase Anda
+        // Menggunakan URL REST API dengan menyertakan Web API Key Anda sebagai auth bypass
         const urlFirebase = "https://firebasedatabase.app";
 
         function ambilDataGPS() {
@@ -240,16 +221,20 @@
             const lngEl = document.getElementById('val-lng');
             const timeEl = document.getElementById('txt-time');
 
-            // Mengambil file JSON secara langsung
-            fetch(urlFirebase, { cache: "no-store" })
-                .then(response => response.json())
+            fetch(urlFirebase, { method: 'GET', mode: 'cors', cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Respons jaringan bermasalah');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data && data.lat !== undefined && data.lng !== undefined) {
-                        // Tempel angka ke HTML
+                        // Tampilkan data angka koordinat asli
                         latEl.innerText = data.lat;
                         lngEl.innerText = data.lng;
                         
-                        // Perbarui Status Tampilan
+                        // Perbarui Status Dashboard
                         statusEl.innerText = "Aktif";
                         statusEl.className = "status-active";
                         accuracyEl.innerText = "± 5 Meter";
@@ -262,21 +247,15 @@
                     }
                 })
                 .catch(error => {
-                    console.error("Error Fetch:", error);
+                    console.error("Fetch Error:", error);
                     statusEl.innerText = "Koneksi Gagal";
                     statusEl.style.color = "red";
                 });
         }
 
-        // Jalankan pengambilan data otomatis setiap 3 detik sekali
+        // Ambil data otomatis setiap 3 detik
         ambilDataGPS();
         setInterval(ambilDataGPS, 3000);
-
-        // Fungsi jika tombol ditekan manual
-        function ambilDataManual() {
-            document.getElementById('txt-time').innerText = "Meminta data terbaru...";
-            ambilDataGPS();
-        }
     </script>
 </body>
 </html>
