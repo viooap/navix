@@ -3,51 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 GPS Tracker Realtime</title>
+    <title>Navix - Sistem Monitoring</title>
     
-    <!-- CSS Leaflet untuk Tampilan Peta -->
+    <!-- CSS Leaflet untuk Peta -->
     <link rel="stylesheet" href="https://unpkg.com" />
     
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
-        #map { height: 100vh; width: 100%; position: absolute; top: 0; bottom: 0; z-index: 1; }
-        .info-box {
-            position: absolute; top: 10px; left: 50px; z-index: 1000;
-            background: white; padding: 10px 15px; border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 14px;
+        :root {
+            --primary-color: #00b894;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-dark: #2d3436;
+            --text-muted: #636e72;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+        }
+
+        /* Navbar Atas */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-bg);
+            padding: 15px 50px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .navbar .logo {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .navbar nav a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .navbar nav a.active {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* Kontainer Utama */
+        .main-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .header-title {
+            margin-bottom: 25px;
+        }
+        .header-title h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header-title p {
+            margin: 5px 0 0 0;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Grid Layout untuk Kartu */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 25px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            box-sizing: border-box;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #f1f2f6;
+            padding-bottom: 10px;
+        }
+
+        /* Detail Informasi Status */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .info-table td {
+            padding: 12px 0;
+            font-size: 14px;
+        }
+        .info-table td:first-child {
+            color: var(--text-muted);
+            width: 45%;
+        }
+        .info-table td:last-child {
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .status-active { color: var(--primary-color); }
+        .status-connecting { color: orange; }
+
+        /* Tombol Hubungkan */
+        .btn-connect {
+            display: block;
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);
+            transition: background 0.2s;
+        }
+        .btn-connect:hover {
+            background-color: #009473;
+        }
+
+        /* Kontainer Peta */
+        #map {
+            height: 380px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #e4e7eb;
         }
     </style>
 </head>
 <body>
 
-    <!-- Kotak Status Informasi -->
-    <div class="info-box">
-        <b>GPS Tracker Status:</b> <span id="status" style="color: orange;">Memuat Peta...</span>
+    <!-- Navbar -->
+    <div class="navbar">
+        <div class="logo">Navix</div>
+        <nav>
+            <a href="#" class="active">Dashboard</a>
+            <a href="#">Riwayat</a>
+            <a href="#">Perangkat</a>
+            <a href="#">Credits</a>
+        </nav>
     </div>
 
-    <!-- Wadah Peta -->
-    <div id="map"></div>
+    <!-- Konten Utama -->
+    <div class="main-container">
+        <div class="header-title">
+            <h1>Pelacak Real-Time</h1>
+            <p>Pantau lokasi perangkat Anda secara akurat.</p>
+        </div>
 
-    <!-- JS Leaflet (Dimuat lebih dulu agar peta pasti muncul) -->
+        <div class="dashboard-grid">
+            <!-- Kartu Kiri: Status Perangkat -->
+            <div class="card">
+                <h2>Status Perangkat</h2>
+                <table class="info-table">
+                    <tr>
+                        <td>Nama Alat:</td>
+                        <td>Navix</td>
+                    </tr>
+                    <tr>
+                        <td>Status:</td>
+                        <td><span id="txt-status" class="status-connecting">Menghubungkan...</span></td>
+                    </tr>
+                    <tr>
+                        <td>Akurasi GPS:</td>
+                        <td id="txt-accuracy">Mencari Sinyal</td>
+                    </tr>
+                    <tr>
+                        <td>Baterai:</td>
+                        <td>84%</td>
+                    </tr>
+                </table>
+                <button class="btn-connect">Hubungkan Perangkat</button>
+            </div>
+
+            <!-- Kartu Kanan: Peta Lokasi -->
+            <div class="card">
+                <h2>Lokasi Sekarang</h2>
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library JS Leaflet & Firebase -->
     <script src="https://unpkg.com"></script>
-
-    <!-- Library Firebase Versi Ringan (8.x.x Compat) -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 
     <script>
-        // 1. Inisialisasi Peta Duluan Agar Tidak Putih Polos
+        // 1. Inisialisasi Peta (Menggunakan tile server CARTO agar terhindar dari Error 403)
         const defaultPos = [-6.17511, 106.86503]; // Jakarta Pusat
         const map = L.map('map').setView(defaultPos, 13);
         
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
+        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap, © CARTO'
         }).addTo(map);
 
         let marker = L.marker(defaultPos).addTo(map);
-        marker.bindPopup("<b>Menunggu Sinyal GPS...</b>").openPopup();
-        
-        document.getElementById('status').innerText = "Menghubungkan ke Firebase...";
+        marker.bindPopup("<b>Navix Tracker</b><br>Menunggu data koordinat...").openPopup();
 
         // 2. Konfigurasi Firebase Proyek Anda
         const firebaseConfig = {
@@ -60,34 +225,34 @@
             appId: "1:666302669881:web:b65fdba496c55c015199e9"
         };
         
-        // Inisialisasi Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 3. Mengambil data secara Real-time
+        // 3. Sinkronisasi Data Firebase Real-time
         const gpsRef = database.ref('tracker');
         
         gpsRef.on('value', (snapshot) => {
             const data = snapshot.val();
-            const statusText = document.getElementById('status');
+            const statusEl = document.getElementById('txt-status');
+            const accuracyEl = document.getElementById('txt-accuracy');
 
             if (data && data.lat && data.lng) {
                 const newPos = [data.lat, data.lng];
                 
+                // Pindahkan pin dan kamera peta
                 marker.setLatLng(newPos);
                 map.panTo(newPos);
-                marker.bindPopup(`<b>Lokasi Alat Tracker</b><br>Lat: ${data.lat}<br>Lng: ${data.lng}`).openPopup();
+                marker.bindPopup(`<b>Navix Tracker</b><br>Lat: ${data.lat}<br>Lng: ${data.lng}`).openPopup();
                 
-                statusText.innerText = "Aktif (Menerima Data)";
-                statusText.style.color = "green";
+                // Perbarui Teks Dashboard
+                statusEl.innerText = "Aktif";
+                statusEl.className = "status-active";
+                accuracyEl.innerText = "± 5 Meter";
             } else {
-                statusText.innerText = "Terhubung, Menunggu Koordinat ESP32...";
-                statusText.style.color = "blue";
+                statusEl.innerText = "Menunggu Alat...";
+                statusEl.className = "status-connecting";
+                accuracyEl.innerText = "Mencari Sinyal";
             }
-        }, (error) => {
-            console.error(error);
-            document.getElementById('status').innerText = "Gagal memuat database!";
-            document.getElementById('status').style.color = "red";
         });
     </script>
 </body>
