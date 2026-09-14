@@ -3,167 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Navix - Sistem Monitoring Kendaraan</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Leaflet.js Peta CDN -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Paho MQTT JavaScript CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <title>GPS Tracker Kelompok</title>
+    <!-- Library CSS Peta Gratis (Leaflet.js) -->
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f4f6f9; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-bottom: 5px; }
+        h3 { color: #7f8c8d; margin-top: 0; font-weight: 400; }
+        #map { height: 450px; width: 100%; margin: 20px 0; border-radius: 8px; border: 2px solid #bdc3c7; }
+        .info-box { display: flex; justify-content: space-around; background: #ecf0f1; padding: 10px; border-radius: 8px; font-size: 14px; }
+        .status { font-weight: bold; color: #2980b9; }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-700 font-sans min-h-screen">
+<body>
 
-    <!-- NAVBAR -->
-    <nav class="bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
-        <div class="text-emerald-600 font-bold text-xl tracking-wide">Navix</div>
-        <div class="flex space-x-6 text-sm font-medium">
-            <a href="/dashboard/" class="text-emerald-600 border-b-2 border-emerald-500 pb-1">Dashboard</a>
-            <a href="/riwayat/" class="text-gray-400 hover:text-gray-600">Riwayat</a>
-            <a href="#" class="text-gray-400 hover:text-gray-600">Perangkat</a>
-            <a href="#" class="text-gray-400 hover:text-gray-600">Credits</a>
-        </div>
-        <div class="w-8 h-8 rounded-full border border-gray-200 bg-gray-100"></div> <!-- Placeholder User Icon -->
-    </nav>
+<div class="container">
+    <h1>MONITORING GPS TRACKER</h1>
+    <!-- SILAKAN GANTI NAMA KELOMPOK DI BAWAH INI -->
+    <h3>Kelompok 4 - Kelas XI (Teknik Elektronika)</h3>
+    
+    <!-- Tempat Menampilkan Peta -->
+    <div id="map"></div>
 
-    <!-- MAIN CONTENT CONTAINER -->
-    <main class="max-w-6xl mx-auto px-6 py-8">
-        
-        <!-- HEADER TITLE -->
-        <div class="mb-8">
-            <h1 class="text-2xl font-bold text-slate-800">Pelacakan Real-Time</h1>
-            <p class="text-sm text-gray-400 mt-1">Pantau lokasi perangkat Anda secara akurat.</p>
-        </div>
+    <div class="info-box">
+        <div>Latitude: <span id="lat-val" class="status">-</span></div>
+        <div>Longitude: <span id="lng-val" class="status">-</span></div>
+        <div>Update Terakhir: <span id="time-val" class="status">-</span></div>
+    </div>
+</div>
 
-        <!-- TWO COLUMN GRID LAYOUT -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            <!-- LEFT COLUMN: STATUS PERANGKAT -->
-            <div class="bg-white rounded-xl shadow-xs border border-gray-100 p-6 flex flex-col justify-between h-[450px]">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-800 mb-6">Status Perangkat</h2>
-                    
-                    <div class="space-y-4 text-sm">
-                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span class="text-gray-400">Nama Alat:</span>
-                            <span id="device-name" class="font-semibold text-slate-700">Navix</span>
-                        </div>
-                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span class="text-gray-400">Status:</span>
-                            <span id="device-status" class="font-bold text-emerald-500">Aktif</span>
-                        </div>
-                        <div class="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span class="text-gray-400">Akurasi GPS:</span>
-                            <span id="gps-accuracy" class="font-semibold text-slate-700">± 5 Meter</span>
-                        </div>
-                        <div class="flex justify-between items-center py-2">
-                            <span class="text-gray-400">Baterai:</span>
-                            <span id="device-battery" class="font-bold text-slate-700">84%</span>
-                        </div>
-                    </div>
-                </div>
+<!-- Library Javascript Peta (Leaflet.js) -->
+<script src="https://unpkg.com"></script>
 
-                <!-- ACTION BUTTON -->
-                <button onclick="hubungkanMQTT()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-4 rounded-lg transition-colors cursor-pointer text-center">
-                    Hubungkan Perangkat
-                </button>
-            </div>
+<script>
+    // 1. PENGATURAN BLYNK (WAJIB DIGANTI!)
+    // Masukkan Blynk Auth Token Anda di antara tanda kutip di bawah ini
+    const BLYNK_AUTH_TOKEN = "MASUKKAN_AUTH_TOKEN_BLYNK_ALAT_ANDA_DI_SINI"; 
+    // Jika server Blynk Anda bukan sgp1 (Asia), ganti blynk.cloud sesuai region Anda (misal: blynk.cloud)
+    const BLYNK_SERVER = "sgp1.blynk.cloud"; 
 
-            <!-- RIGHT COLUMN: LOKASI SEKARANG (MAP) -->
-            <div class="bg-white rounded-xl shadow-xs border border-gray-100 p-6 md:col-span-2 flex flex-col h-[450px]">
-                <h2 class="text-lg font-bold text-slate-800 mb-4">Lokasi Sekarang</h2>
-                
-                <!-- PETA LEAFLET CONTAINER -->
-                <div id="map" class="w-full flex-1 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm relative z-0">
-                    <span id="map-placeholder">Menunggu sinyal GPS...</span>
-                </div>
-            </div>
+    // 2. Inisialisasi Peta Awal (Default set ke Indonesia)
+    var map = L.map('map').setView([-2.5489, 118.0149], 5);
 
-        </div>
-    </main>
+    // Menggunakan desain peta gratis dari OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-    <!-- JAVASCRIPT LOGIC -->
-    <script>
-        // 1. Inisialisasi Peta Awal (Koordinat Jakarta sebagai default sebelum data masuk)
-        let map = L.map('map').setView([-6.2088, 106.8456], 13);
-        
-        // Load lapisan peta dari OpenStreetMap
-        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap contributors © CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20
-}).addTo(map);
+    // Buat marker/pin kosong terlebih dahulu
+    var marker = L.marker([0, 0]).addTo(map).bindPopup('<b>Posisi Alat Saat Ini</b>');
+    var firstLoad = true; // Penanda untuk memfokuskan peta saat pertama kali data masuk
 
+    // 3. Fungsi Fetch Data dari API Blynk
+    async function getGPSData() {
+        try {
+            // Mengambil data Latitude (V3) dan Longitude (V4) sekaligus menggunakan API REST Blynk
+            const urlLat = `https://${BLYNK_SERVER}/external/api/get?token=${BLYNK_AUTH_TOKEN}&v3`;
+            const urlLng = `https://${BLYNK_SERVER}/external/api/get?token=${BLYNK_AUTH_TOKEN}&v4`;
 
-        // Buat penanda (marker) yang nanti lokasinya diupdate dari GPS
-        let marker = L.marker([-6.2088, 106.8456]).addTo(map)
-            .bindPopup("<b>Kurir-Mobil-01</b><br>Menunggu data koordinat aktual.");
+            const resLat = await fetch(urlLat);
+            const resLng = await fetch(urlLng);
 
-        // Menghilangkan tulisan "Menunggu sinyal GPS..." setelah peta termuat
-        document.getElementById('map-placeholder').style.display = 'none';
+            if (!resLat.ok || !resLng.ok) throw new Error("Gagal terhubung ke Blynk API");
 
-        // 2. Konfigurasi Client MQTT
-        const MQTT_BROKER = "broker.hivemq.com";
-        const MQTT_PORT = 8000; // Menggunakan WebSocket port standar broker publik (Gunakan 443 jika di deploy ke HTTPS Netlify)
-        const MQTT_TOPIC = "monitoring/kendaraan/posisi";
-        const CLIENT_ID = "web_client_" + Math.random().toString(16).substr(2, 8);
+            const lat = parseFloat(await resLat.text());
+            const lng = parseFloat(await resLng.text());
 
-        let client = new Paho.MQTT.Client(MQTT_BROKER, MQTT_PORT, CLIENT_ID);
+            // Cek jika koordinat valid (bukan 0 atau error data kosong)
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                // Perbarui posisi pin/marker di peta
+                marker.setLatLng([lat, lng]);
 
-        // Jika koneksi terputus
-        client.onConnectionLost = function (responseObject) {
-            if (responseObject.errorCode !== 0) {
-                console.log("Koneksi terputus: " + responseObject.errorMessage);
-                document.getElementById('device-status').innerText = "Terputus";
-                document.getElementById('device-status').className = "font-bold text-red-500";
-            }
-        };
+                // Perbarui teks angka di bawah peta
+                document.getElementById('lat-val').innerText = lat.toFixed(6);
+                document.getElementById('lng-val').innerText = lng.toFixed(6);
+                document.getElementById('time-val').innerText = new Date().toLocaleTimeString('id-ID');
 
-        // Jika pesan/data dari ESP32 masuk
-        client.onMessageArrived = function (message) {
-            console.log("Data diterima: " + message.payloadString);
-            
-            try {
-                // Parsing data JSON dari ESP32, contoh: {"lat": -6.123, "lng": 106.123, "batt": 84, "acc": 5}
-                let data = JSON.parse(message.payloadString);
-                
-                if (data.lat && data.lng) {
-                    // Update posisi marker dan titik tengah peta
-                    let newPos = [data.lat, data.lng];
-                    marker.setLatLng(newPos).setPopupContent("<b>Kendaraan Berjalan</b><br>Lat: " + data.lat + "<br>Lng: " + data.lng).openPopup();
-                    map.setView(newPos, 16);
-
-                    // Update UI status secara dinamis jika parameter dikirim oleh ESP32
-                    if(data.batt) document.getElementById('device-battery').innerText = data.batt + "%";
-                    if(data.acc) document.getElementById('gps-accuracy').innerText = "± " + data.acc + " Meter";
-                    
-                    document.getElementById('device-status').innerText = "Aktif";
-                    document.getElementById('device-status').className = "font-bold text-emerald-500";
+                // Jika pertama kali web dibuka, langsung arahkan kamera peta ke lokasi alat
+                if (firstLoad) {
+                    map.setView([lat, lng], 16); // Angka 16 adalah tingkat kedekatan zoom peta
+                    marker.openPopup();
+                    firstLoad = false;
                 }
-            } catch (e) {
-                console.error("Format data payload bermasalah/bukan JSON valid.");
+            } else {
+                document.getElementById('time-val').innerText = "Menunggu data GPS valid...";
             }
-        };
 
-        // Fungsi pemicu tombol hubungkan
-        function hubungkanMQTT() {
-            document.getElementById('device-status').innerText = "Menghubungkan...";
-            document.getElementById('device-status').className = "font-bold text-amber-500";
-            
-            client.connect({
-                onSuccess: function () {
-                    console.log("Sukses terhubung ke MQTT Broker!");
-                    client.subscribe(MQTT_TOPIC);
-                    document.getElementById('device-status').innerText = "Terhubung (Mencari GPS)";
-                    document.getElementById('device-status').className = "font-bold text-blue-500";
-                },
-                onFailure: function (message) {
-                    console.log("Gagal terhubung: " + message.errorMessage);
-                    document.getElementById('device-status').innerText = "Gagal Konek";
-                    document.getElementById('device-status').className = "font-bold text-red-500";
-                }
-            });
+        } catch (error) {
+            console.error("Error Fetch:", error);
+            document.getElementById('time-val').innerText = "Koneksi Error/Token Salah";
         }
-    </script>
+    }
+
+    // Jalankan fungsi fetch pertama kali saat web dibuka
+    getGPSData();
+
+    // Jalankan fungsi fetch secara otomatis setiap 5000 milidetik (5 detik)
+    setInterval(getGPSData, 5000);
+</script>
+
 </body>
 </html>
