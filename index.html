@@ -4,59 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 GPS Tracker Realtime</title>
-    <!-- CSS Leaflet untuk Peta -->
+    
+    <!-- CSS Leaflet untuk Tampilan Peta -->
     <link rel="stylesheet" href="https://unpkg.com" />
+    
     <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         #map { height: 100vh; width: 100%; }
-        body { margin: 0; padding: 0; }
+        .info-box {
+            position: absolute; top: 10px; left: 50px; z-index: 1000;
+            background: white; padding: 10px 15px; border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-size: 14px;
+        }
     </style>
 </head>
 <body>
 
+    <!-- Kotak Status Informasi -->
+    <div class="info-box">
+        <b>GPS Tracker Status:</b> <span id="status" style="color: orange;">Menghubungkan ke Firebase...</span>
+    </div>
+
+    <!-- Wadah Peta -->
     <div id="map"></div>
 
-    <!-- SDK Firebase (Gunakan versi tumpukan/compat agar mudah) -->
+    <!-- Library Utama SDK Firebase Versi Compat -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
     
-    <!-- JS Leaflet -->
+    <!-- Library JS Leaflet untuk Peta -->
     <script src="https://unpkg.com"></script>
 
     <script>
-        // 1. Konfigurasi Firebase Anda
+        // 1. Konfigurasi Firebase Berdasarkan Project Anda
         const firebaseConfig = {
-            apiKey: "API_KEY_ANDA",
+            apiKey: "AIzaSyB5rITD9OxYNDvQFZgE4NxMzro_MzSswb8",
             authDomain: "://firebaseapp.com",
-            databaseURL: "https://firebaseio.com",
-            projectId: "proyek-gps",
-            storageBucket: "://appspot.com",
+            databaseURL: "https://firebasedatabase.app",
+            projectId: "fixselesai-fde60",
+            storageBucket: "fixselesai-fde60.firebasestorage.app",
+            messagingSenderId: "666302669881",
+            appId: "1:666302669881:web:b65fdba496c55c015199e9"
         };
         
         // Inisialisasi Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 2. Inisialisasi Peta Leaflet (Default koordinat Jakarta)
-        const map = L.map('map').setView([-6.200000, 106.816666], 15);
+        // 2. Inisialisasi Peta Leaflet (Posisi awal default di Jakarta Tengah)
+        const map = L.map('map').setView([-6.17511, 106.86503], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Buat penanda (marker) peta
-        let marker = L.marker([-6.200000, 106.816666]).addTo(map);
+        // Buat penanda (marker) ikon peta pada posisi awal
+        let marker = L.marker([-6.17511, 106.86503]).addTo(map);
 
-        // 3. Ambil data dari Firebase secara Real-time
+        // 3. Mengambil data dari Firebase secara Real-time
         const gpsRef = database.ref('tracker');
+        
         gpsRef.on('value', (snapshot) => {
             const data = snapshot.val();
-            if(data && data.lat && data.lng) {
+            const statusText = document.getElementById('status');
+
+            if (data && data.lat && data.lng) {
                 const newPos = [data.lat, data.lng];
                 
-                // Update posisi marker dan geser peta ke lokasi baru
+                // Update posisi marker dan geser fokus kamera peta ke lokasi baru
                 marker.setLatLng(newPos);
                 map.panTo(newPos);
-                marker.bindPopup(`<b>Lokasi Tracker</b><br>Lat: ${data.lat}<br>Lng: ${data.lng}`).openPopup();
+                
+                // Update teks popup saat pin diklik
+                marker.bindPopup(`<b>Lokasi Alat Tracker</b><br>Latitude: ${data.lat}<br>Longitude: ${data.lng}`).openPopup();
+                
+                // Ubah status menjadi aktif terhubung
+                statusText.innerText = "Aktif (Menerima Data)";
+                statusText.style.color = "green";
+            } else {
+                statusText.innerText = "Terhubung, Menunggu Koordinat dari ESP32...";
+                statusText.style.color = "blue";
             }
+        }, (error) => {
+            console.error(error);
+            document.getElementById('status').innerText = "Gagal memuat database! Periksa aturan Rules Firebase.";
+            document.getElementById('status').style.color = "red";
         });
     </script>
 </body>
