@@ -51,14 +51,17 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 2. Inisialisasi Peta Leaflet (Posisi awal default di Jakarta Tengah)
-        const map = L.map('map').setView([-6.17511, 106.86503], 15);
+        // 2. Inisialisasi Peta Leaflet (Posisi awal default di Jakarta Pusat)
+        const defaultPos = [-6.17511, 106.86503];
+        const map = L.map('map').setView(defaultPos, 13);
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
         // Buat penanda (marker) ikon peta pada posisi awal
-        let marker = L.marker([-6.17511, 106.86503]).addTo(map);
+        let marker = L.marker(defaultPos).addTo(map);
+        marker.bindPopup("<b>Menunggu Sinyal GPS...</b><br>Peta dimuat dengan sukses.").openPopup();
 
         // 3. Mengambil data dari Firebase secara Real-time
         const gpsRef = database.ref('tracker');
