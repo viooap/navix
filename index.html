@@ -128,9 +128,6 @@
             box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3);
             transition: background 0.2s;
         }
-        .btn-connect:hover {
-            background-color: #009473;
-        }
 
         /* Tampilan Teks Koordinat */
         .geo-display {
@@ -199,7 +196,7 @@
                     </tr>
                     <tr>
                         <td>Status:</td>
-                        <td><span id="txt-status" class="status-connecting">Menghubungkan...</span></td>
+                        <td><span id="txt-status" class="status-connecting">Menghubungkan via API...</span></td>
                     </tr>
                     <tr>
                         <td>Akurasi GPS:</td>
@@ -210,7 +207,7 @@
                         <td>84%</td>
                     </tr>
                 </table>
-                <button class="btn-connect">Hubungkan Perangkat</button>
+                <button class="btn-connect" onclick="ambilDataManual()">Paksa Update Data</button>
             </div>
 
             <!-- Kartu Kanan: Tampilan Angka Koordinat -->
@@ -226,65 +223,60 @@
                         <div id="val-lng" class="geo-value">--.------</div>
                     </div>
                 </div>
-                <div id="txt-time" class="timestamp">Terakhir diperbarui: Belum ada data</div>
+                <div id="txt-time" class="timestamp">Terakhir diperbarui: Menunggu request...</div>
             </div>
         </div>
     </div>
 
-    <!-- Library JS Firebase SDK v8 -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
-
+    <!-- SCRIPT UTAMA: Tanpa Library Pihak Ketiga, Murni JavaScript Fetch -->
     <script>
-        // Konfigurasi Firebase Proyek Anda
-        const firebaseConfig = {
-            apiKey: "AIzaSyB5rITD9OxYNDvQFZgE4NxMzro_MzSswb8",
-            authDomain: "://firebaseapp.com",
-            databaseURL: "https://firebasedatabase.app",
-            projectId: "fixselesai-fde60",
-            storageBucket: "fixselesai-fde60.firebasestorage.app",
-            messagingSenderId: "666302669881",
-            appId: "1:666302669881:web:b65fdba496c55c015199e9"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        // URL Data Mentah Firebase Anda
+        const urlFirebase = "https://firebasedatabase.app";
 
-        // Mengambil referensi langsung ke folder 'tracker'
-        const gpsRef = database.ref('tracker');
-        
-        gpsRef.on('value', (snapshot) => {
+        function ambilDataGPS() {
             const statusEl = document.getElementById('txt-status');
             const accuracyEl = document.getElementById('txt-accuracy');
             const latEl = document.getElementById('val-lat');
             const lngEl = document.getElementById('val-lng');
             const timeEl = document.getElementById('txt-time');
 
-            // Cek apakah snapshot database memiliki isi data asli
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                
-                // Cek isi data lat dan lng secara spesifik
-                if (data && data.lat !== undefined && data.lng !== undefined) {
-                    latEl.innerText = data.lat;
-                    lngEl.innerText = data.lng;
-                    
-                    statusEl.innerText = "Aktif";
-                    statusEl.className = "status-active";
-                    accuracyEl.innerText = "± 5 Meter";
+            // Mengambil file JSON secara langsung
+            fetch(urlFirebase, { cache: "no-store" })
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.lat !== undefined && data.lng !== undefined) {
+                        // Tempel angka ke HTML
+                        latEl.innerText = data.lat;
+                        lngEl.innerText = data.lng;
+                        
+                        // Perbarui Status Tampilan
+                        statusEl.innerText = "Aktif";
+                        statusEl.className = "status-active";
+                        accuracyEl.innerText = "± 5 Meter";
 
-                    const sekarang = new Date();
-                    timeEl.innerText = "Terakhir diperbarui: " + sekarang.toLocaleTimeString('id-ID') + " WIB";
-                }
-            } else {
-                statusEl.innerText = "Data Kosong...";
-                statusEl.className = "status-connecting";
-            }
-        }, (error) => {
-            console.error("Firebase Error: ", error);
-            document.getElementById('txt-status').innerText = "Akses Ditolak";
-            document.getElementById('txt-status').style.color = "red";
-        });
+                        const sekarang = new Date();
+                        timeEl.innerText = "Terakhir diperbarui: " + sekarang.toLocaleTimeString('id-ID') + " WIB";
+                    } else {
+                        statusEl.innerText = "Data Kosong";
+                        statusEl.className = "status-connecting";
+                    }
+                })
+                .catch(error => {
+                    console.error("Error Fetch:", error);
+                    statusEl.innerText = "Koneksi Gagal";
+                    statusEl.style.color = "red";
+                });
+        }
+
+        // Jalankan pengambilan data otomatis setiap 3 detik sekali
+        ambilDataGPS();
+        setInterval(ambilDataGPS, 3000);
+
+        // Fungsi jika tombol ditekan manual
+        function ambilDataManual() {
+            document.getElementById('txt-time').innerText = "Meminta data terbaru...";
+            ambilDataGPS();
+        }
     </script>
 </body>
 </html>
