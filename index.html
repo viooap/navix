@@ -3,105 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPS Tracker Kelompok</title>
-    <!-- Library CSS Peta Gratis (Leaflet.js) -->
+    <title>ESP32 GPS Tracker Realtime</title>
+    <!-- CSS Leaflet untuk Peta -->
     <link rel="stylesheet" href="https://unpkg.com" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f4f6f9; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { color: #2c3e50; margin-bottom: 5px; }
-        h3 { color: #7f8c8d; margin-top: 0; font-weight: 400; }
-        #map { height: 450px; width: 100%; margin: 20px 0; border-radius: 8px; border: 2px solid #bdc3c7; }
-        .info-box { display: flex; justify-content: space-around; background: #ecf0f1; padding: 10px; border-radius: 8px; font-size: 14px; }
-        .status { font-weight: bold; color: #2980b9; }
+        #map { height: 100vh; width: 100%; }
+        body { margin: 0; padding: 0; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>MONITORING GPS TRACKER</h1>
-    <!-- SILAKAN GANTI NAMA KELOMPOK DI BAWAH INI -->
-    <h3>Kelompok 4 - Kelas XI (Teknik Elektronika)</h3>
-    
-    <!-- Tempat Menampilkan Peta -->
     <div id="map"></div>
 
-    <div class="info-box">
-        <div>Latitude: <span id="lat-val" class="status">-</span></div>
-        <div>Longitude: <span id="lng-val" class="status">-</span></div>
-        <div>Update Terakhir: <span id="time-val" class="status">-</span></div>
-    </div>
-</div>
+    <!-- SDK Firebase (Gunakan versi tumpukan/compat agar mudah) -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
+    
+    <!-- JS Leaflet -->
+    <script src="https://unpkg.com"></script>
 
-<!-- Library Javascript Peta (Leaflet.js) -->
-<script src="https://unpkg.com"></script>
+    <script>
+        // 1. Konfigurasi Firebase Anda
+        const firebaseConfig = {
+            apiKey: "API_KEY_ANDA",
+            authDomain: "://firebaseapp.com",
+            databaseURL: "https://firebaseio.com",
+            projectId: "proyek-gps",
+            storageBucket: "://appspot.com",
+        };
+        
+        // Inisialisasi Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-<script>
-    // 1. PENGATURAN BLYNK (WAJIB DIGANTI!)
-    // Masukkan Blynk Auth Token Anda di antara tanda kutip di bawah ini
-    const BLYNK_AUTH_TOKEN = "c7VUKBkeOkK49_UdwcqFR9eU2wDO6hvO"; 
-    // Jika server Blynk Anda bukan sgp1 (Asia), ganti blynk.cloud sesuai region Anda (misal: blynk.cloud)
-    const BLYNK_SERVER = "sgp1.blynk.cloud"; 
+        // 2. Inisialisasi Peta Leaflet (Default koordinat Jakarta)
+        const map = L.map('map').setView([-6.200000, 106.816666], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-    // 2. Inisialisasi Peta Awal (Default set ke Indonesia)
-    var map = L.map('map').setView([-2.5489, 118.0149], 5);
+        // Buat penanda (marker) peta
+        let marker = L.marker([-6.200000, 106.816666]).addTo(map);
 
-    // Menggunakan desain peta gratis dari OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    // Buat marker/pin kosong terlebih dahulu
-    var marker = L.marker([0, 0]).addTo(map).bindPopup('<b>Posisi Alat Saat Ini</b>');
-    var firstLoad = true; // Penanda untuk memfokuskan peta saat pertama kali data masuk
-
-    // 3. Fungsi Fetch Data dari API Blynk
-    async function getGPSData() {
-        try {
-            // Mengambil data Latitude (V3) dan Longitude (V4) sekaligus menggunakan API REST Blynk
-            const urlLat = `https://${BLYNK_SERVER}/external/api/get?token=${BLYNK_AUTH_TOKEN}&v3`;
-            const urlLng = `https://${BLYNK_SERVER}/external/api/get?token=${BLYNK_AUTH_TOKEN}&v4`;
-
-            const resLat = await fetch(urlLat);
-            const resLng = await fetch(urlLng);
-
-            if (!resLat.ok || !resLng.ok) throw new Error("Gagal terhubung ke Blynk API");
-
-            const lat = parseFloat(await resLat.text());
-            const lng = parseFloat(await resLng.text());
-
-            // Cek jika koordinat valid (bukan 0 atau error data kosong)
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                // Perbarui posisi pin/marker di peta
-                marker.setLatLng([lat, lng]);
-
-                // Perbarui teks angka di bawah peta
-                document.getElementById('lat-val').innerText = lat.toFixed(6);
-                document.getElementById('lng-val').innerText = lng.toFixed(6);
-                document.getElementById('time-val').innerText = new Date().toLocaleTimeString('id-ID');
-
-                // Jika pertama kali web dibuka, langsung arahkan kamera peta ke lokasi alat
-                if (firstLoad) {
-                    map.setView([lat, lng], 16); // Angka 16 adalah tingkat kedekatan zoom peta
-                    marker.openPopup();
-                    firstLoad = false;
-                }
-            } else {
-                document.getElementById('time-val').innerText = "Menunggu data GPS valid...";
+        // 3. Ambil data dari Firebase secara Real-time
+        const gpsRef = database.ref('tracker');
+        gpsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data && data.lat && data.lng) {
+                const newPos = [data.lat, data.lng];
+                
+                // Update posisi marker dan geser peta ke lokasi baru
+                marker.setLatLng(newPos);
+                map.panTo(newPos);
+                marker.bindPopup(`<b>Lokasi Tracker</b><br>Lat: ${data.lat}<br>Lng: ${data.lng}`).openPopup();
             }
-
-        } catch (error) {
-            console.error("Error Fetch:", error);
-            document.getElementById('time-val').innerText = "Koneksi Error/Token Salah";
-        }
-    }
-
-    // Jalankan fungsi fetch pertama kali saat web dibuka
-    getGPSData();
-
-    // Jalankan fungsi fetch secara otomatis setiap 5000 milidetik (5 detik)
-    setInterval(getGPSData, 5000);
-</script>
-
+        });
+    </script>
 </body>
 </html>
