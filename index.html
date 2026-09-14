@@ -67,7 +67,7 @@
             font-size: 14px;
         }
 
-        /* Grid Layout untuk Kartu samping-menyamping */
+        /* Grid Layout */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1.5fr;
@@ -132,7 +132,7 @@
             background-color: #009473;
         }
 
-        /* Tampilan Teks Koordinat Besar */
+        /* Tampilan Teks Koordinat */
         .geo-display {
             display: flex;
             flex-direction: column;
@@ -231,7 +231,7 @@
         </div>
     </div>
 
-    <!-- Library JS Firebase (Tanpa Leaflet karena tidak butuh peta) -->
+    <!-- Library JS Firebase SDK v8 -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 
@@ -250,38 +250,40 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // Sinkronisasi Data Firebase Real-time
+        // Mengambil referensi langsung ke folder 'tracker'
         const gpsRef = database.ref('tracker');
         
         gpsRef.on('value', (snapshot) => {
-            const data = snapshot.val();
             const statusEl = document.getElementById('txt-status');
             const accuracyEl = document.getElementById('txt-accuracy');
             const latEl = document.getElementById('val-lat');
             const lngEl = document.getElementById('val-lng');
             const timeEl = document.getElementById('txt-time');
 
-            if (data && data.lat && data.lng) {
-                // Tampilkan angka koordinat asli di layar
-                latEl.innerText = data.lat;
-                lngEl.innerText = data.lng;
+            // Cek apakah snapshot database memiliki isi data asli
+            if (snapshot.exists()) {
+                const data = snapshot.val();
                 
-                // Perbarui Teks Dashboard
-                statusEl.innerText = "Aktif";
-                statusEl.className = "status-active";
-                accuracyEl.innerText = "± 5 Meter";
+                // Cek isi data lat dan lng secara spesifik
+                if (data && data.lat !== undefined && data.lng !== undefined) {
+                    latEl.innerText = data.lat;
+                    lngEl.innerText = data.lng;
+                    
+                    statusEl.innerText = "Aktif";
+                    statusEl.className = "status-active";
+                    accuracyEl.innerText = "± 5 Meter";
 
-                // Tambahkan keterangan waktu update otomatis
-                const sekarang = new Date();
-                timeEl.innerText = "Terakhir diperbarui: " + sekarang.toLocaleTimeString('id-ID') + " WIB";
+                    const sekarang = new Date();
+                    timeEl.innerText = "Terakhir diperbarui: " + sekarang.toLocaleTimeString('id-ID') + " WIB";
+                }
             } else {
-                statusEl.innerText = "Menunggu Alat...";
+                statusEl.innerText = "Data Kosong...";
                 statusEl.className = "status-connecting";
-                accuracyEl.innerText = "Mencari Sinyal";
-                latEl.innerText = "--.------";
-                lngEl.innerText = "--.------";
-                timeEl.innerText = "Terakhir diperbarui: Belum ada data";
             }
+        }, (error) => {
+            console.error("Firebase Error: ", error);
+            document.getElementById('txt-status').innerText = "Akses Ditolak";
+            document.getElementById('txt-status').style.color = "red";
         });
     </script>
 </body>
